@@ -40,6 +40,14 @@ describe('loadPrompts / savePrompts', () => {
     expect(loadPrompts().map((x) => x.id)).toEqual(['ok'])
   })
 
+  it('drops entries whose createdAt is not a valid date', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([p({ id: 'ok' }), p({ id: 'huge', createdAt: 1e20 })]),
+    )
+    expect(loadPrompts().map((x) => x.id)).toEqual(['ok'])
+  })
+
   it('wraps setItem failures in StorageWriteError', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('full', 'QuotaExceededError')

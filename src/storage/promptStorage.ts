@@ -17,7 +17,8 @@ function isPrompt(value: unknown): value is Prompt {
     typeof v.title === 'string' &&
     typeof v.content === 'string' &&
     typeof v.createdAt === 'number' &&
-    Number.isFinite(v.createdAt)
+    // Finite numbers beyond the Date range make toISOString() throw at render time.
+    !Number.isNaN(new Date(v.createdAt).getTime())
   )
 }
 
