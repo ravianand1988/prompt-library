@@ -1,4 +1,31 @@
-# React + TypeScript + Vite
+# Prompt Library
+
+Create, save and delete text prompts.
+
+## Running
+
+Requires **Node 24+** (it uses Node's built-in `node:sqlite`).
+
+```bash
+npm install
+npm run dev
+```
+
+## Storage
+
+Prompts live in a local SQLite database at `data/prompts.db` (git-ignored, created on first run).
+Set `PROMPT_DB_PATH` to use a different file, e.g. `PROMPT_DB_PATH=~/prompts.db npm run dev`.
+
+The small JSON API that reads and writes the database (`server/`) runs inside the Vite server, so it
+only exists under `npm run dev` and `npm run preview`. A static `dist/` deploy has no backend and
+can't store prompts.
+
+Prompts saved by earlier versions in the browser's `localStorage` are moved into the database
+automatically the first time the app loads.
+
+---
+
+## Template notes (React + TypeScript + Vite)
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
