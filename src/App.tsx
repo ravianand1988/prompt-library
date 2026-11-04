@@ -4,12 +4,14 @@ import { PromptForm } from './components/PromptForm'
 import { PromptList } from './components/PromptList'
 import { usePrompts } from './hooks/usePrompts'
 
+const LOAD_ERROR = "Couldn't load prompts. Check that the app is running, then refresh."
+
 function App() {
-  const { prompts, addPrompt, deletePrompt } = usePrompts()
+  const { prompts, status, addPrompt, deletePrompt } = usePrompts()
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  const handleDelete = (id: string) => {
-    const result = deletePrompt(id)
+  const handleDelete = async (id: string) => {
+    const result = await deletePrompt(id)
     setDeleteError(result.ok ? null : (result.errors.storage ?? null))
   }
 
@@ -23,7 +25,13 @@ function App() {
           {deleteError}
         </p>
       )}
-      <PromptList prompts={prompts} onDelete={handleDelete} />
+      {status === 'loading' && <p>Loading prompts…</p>}
+      {status === 'error' && (
+        <p role="alert" className="form-error">
+          {LOAD_ERROR}
+        </p>
+      )}
+      {status === 'ready' && <PromptList prompts={prompts} onDelete={handleDelete} />}
     </main>
   )
 }

@@ -1,78 +1,139 @@
-import { act, renderHook } from '@testing-library/react'
-import { expect, it, vi } from 'vitest'
-import { STORAGE_KEY, loadPrompts, savePrompts } from '../storage/promptStorage'
-import { type AddResult, usePrompts } from './usePrompts'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { expect, it } from 'vitest'
+import { STORAGE_KEY } from '../storage/legacyStorage'
+import { installFakeApi } from '../test/fakeApi'
+import type { Prompt } from '../types'
+import { type AddResult, SAVE_ERROR, usePrompts } from './usePrompts'
 
-const other = { id: 'other', title: 'X', content: 'x', createdAt: 1 }
+const p = (id: string, createdAt = 1): Prompt => ({ id, title: id, content: 'c', createdAt })
+const seedLegacy = (prompts: Prompt[]) =>
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(prompts))
 
-it('adds a prompt, persists it, and lists it first', () => {
-  vi.spyOn(Date, 'now').mockReturnValueOnce(100).mockReturnValueOnce(200)
+async function renderReady() {
+  const hook = renderHook(() => usePrompts())
+  await waitFor(() => expect(hook.result.current.status).toBe('ready'))
+  return hook
+}
+
+it('starts loading, then lists prompts from the server newest first', async () => {
+  installFakeApi([p('old', 1), p('new', 2)])
   const { result } = renderHook(() => usePrompts())
-  act(() => {
-    result.current.addPrompt({ title: 'A', content: 'a' })
-  })
-  act(() => {
-    result.current.addPrompt({ title: 'B', content: 'b' })
-  })
-  expect(result.current.prompts.map((p) => p.title)).toEqual(['B', 'A'])
-  expect(loadPrompts()).toHaveLength(2)
+  expect(result.current.status).toBe('loading')
+  await waitFor(() => expect(result.current.status).toBe('ready'))
+  expect(result.current.prompts.map((x) => x.id)).toEqual(['new', 'old'])
 })
 
-it('returns validation errors and stores nothing for blank input', () => {
-  const { result } = renderHook(() => usePrompts())
+it('adds a prompt and lists it first', async () => {
+  installFakeApi([p('existing', 1)])
+  const { result } = await renderReady()
   let r!: AddResult
-  act(() => {
-    r = result.current.addPrompt({ title: ' ', content: '' })
+  await act(async () => {
+    r = await result.current.addPrompt({ title: 'Mine', content: 'm' })
+  })
+  expect(r).toEqual({ ok: true })
+  expect(result.current.prompts.map((x) => x.title)).toEqual(['Mine', 'existing'])
+})
+
+it('returns validation errors without calling the server', async () => {
+  const api = installFakeApi()
+  const { result } = await renderReady()
+  let r!: AddResult
+  await act(async () => {
+    r = await result.current.addPrompt({ title: ' ', content: '' })
   })
   expect(r).toEqual({
     ok: false,
     errors: { title: 'Title is required', content: 'Content is required' },
   })
-  expect(loadPrompts()).toEqual([])
+  expect(api.calls.filter((c) => c.startsWith('POST'))).toEqual([])
 })
 
-it('deletes by id from state and storage', () => {
-  savePrompts([
-    { id: '1', title: 'One', content: '1', createdAt: 2 },
-    { id: '2', title: 'Two', content: '2', createdAt: 1 },
-  ])
-  const { result } = renderHook(() => usePrompts())
+it('deletes by id', async () => {
+  const api = installFakeApi([p('1', 2), p('2', 1)])
+  const { result } = await renderReady()
   let r!: AddResult
-  act(() => {
-    r = result.current.deletePrompt('1')
+  await act(async () => {
+    r = await result.current.deletePrompt('1')
   })
   expect(r).toEqual({ ok: true })
-  expect(result.current.prompts.map((p) => p.id)).toEqual(['2'])
-  expect(loadPrompts().map((p) => p.id)).toEqual(['2'])
+  expect(result.current.prompts.map((x) => x.id)).toEqual(['2'])
+  expect(api.prompts.map((x) => x.id)).toEqual(['2'])
 })
 
-it('reports a storage error and leaves state unchanged when the write fails', () => {
+it('reports a save error and leaves state unchanged when the server is unreachable', async () => {
+  const api = installFakeApi([p('1')])
+  const { result } = await renderReady()
+  api.failRequests(true)
+  let add!: AddResult
+  let del!: AddResult
+  await act(async () => {
+    add = await result.current.addPrompt({ title: 'A', content: 'a' })
+    del = await result.current.deletePrompt('1')
+  })
+  expect(add).toEqual({ ok: false, errors: { storage: SAVE_ERROR } })
+  expect(del).toEqual({ ok: false, errors: { storage: SAVE_ERROR } })
+  expect(SAVE_ERROR).toBe(
+    "Couldn't reach the prompt server. Check that the app is running and try again.",
+  )
+  expect(result.current.prompts.map((x) => x.id)).toEqual(['1'])
+})
+
+it('status is error when the initial load fails', async () => {
+  const api = installFakeApi()
+  api.failRequests(true)
   const { result } = renderHook(() => usePrompts())
-  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-    throw new Error('quota')
-  })
-  let r!: AddResult
-  act(() => {
-    r = result.current.addPrompt({ title: 'A', content: 'a' })
-  })
-  expect(r).toEqual({ ok: false, errors: { storage: expect.stringContaining("Couldn't save") } })
+  await waitFor(() => expect(result.current.status).toBe('error'))
   expect(result.current.prompts).toEqual([])
 })
 
-it('does not overwrite prompts written by another tab', () => {
-  const { result } = renderHook(() => usePrompts())
-  savePrompts([other])
-  act(() => {
-    result.current.addPrompt({ title: 'Mine', content: 'm' })
-  })
-  expect(loadPrompts().map((p) => p.id)).toContain('other')
+it('migrates localStorage prompts once and clears the key', async () => {
+  const api = installFakeApi()
+  seedLegacy([p('a', 1), p('b', 2)])
+  const { result } = await renderReady()
+  expect(result.current.prompts.map((x) => x.id)).toEqual(['b', 'a'])
+  expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  expect(api.calls).toEqual(['POST /api/prompts/import', 'GET /api/prompts'])
 })
 
-it('reloads when another tab changes storage', () => {
+it('keeps localStorage prompts when the import fails', async () => {
+  const api = installFakeApi()
+  api.failRequests(true)
+  seedLegacy([p('a')])
   const { result } = renderHook(() => usePrompts())
-  savePrompts([other])
+  await waitFor(() => expect(result.current.status).toBe('error'))
+  expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull()
+})
+
+it('migration under StrictMode creates no duplicates', async () => {
+  const api = installFakeApi()
+  seedLegacy([p('a', 1), p('b', 2)])
+  const { result } = renderHook(() => usePrompts(), { wrapper: StrictMode })
+  await waitFor(() => expect(result.current.status).toBe('ready'))
+  expect(api.prompts.map((x) => x.id).sort()).toEqual(['a', 'b'])
+  expect(result.current.prompts.map((x) => x.id)).toEqual(['b', 'a'])
+})
+
+it('refetches when the window regains focus', async () => {
+  const api = installFakeApi([p('mine', 1)])
+  const { result } = await renderReady()
+  api.prompts.push(p('from-other-tab', 2))
   act(() => {
-    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }))
+    window.dispatchEvent(new Event('focus'))
   })
-  expect(result.current.prompts.map((p) => p.id)).toEqual(['other'])
+  await waitFor(() =>
+    expect(result.current.prompts.map((x) => x.id)).toEqual(['from-other-tab', 'mine']),
+  )
+})
+
+it('keeps the current list when a focus refetch fails', async () => {
+  const api = installFakeApi([p('mine')])
+  const { result } = await renderReady()
+  api.failRequests(true)
+  act(() => {
+    window.dispatchEvent(new Event('focus'))
+  })
+  await waitFor(() => expect(api.calls.at(-1)).toBe('GET /api/prompts'))
+  expect(result.current.status).toBe('ready')
+  expect(result.current.prompts.map((x) => x.id)).toEqual(['mine'])
 })

@@ -4,15 +4,27 @@ import type { NewPromptInput } from '../types'
 
 type Errors = Extract<AddResult, { ok: false }>['errors']
 
-export function PromptForm({ onSave }: { onSave(input: NewPromptInput): AddResult }) {
+export function PromptForm({ onSave }: { onSave(input: NewPromptInput): Promise<AddResult> }) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [errors, setErrors] = useState<Errors>({})
+  const [saving, setSaving] = useState(false)
+  // A ref, not just state, so two submits in the same tick can't both get through.
+  const savingRef = useRef(false)
   const titleRef = useRef<HTMLInputElement>(null)
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const result = onSave({ title, content })
+    if (savingRef.current) return
+    savingRef.current = true
+    setSaving(true)
+    let result: AddResult
+    try {
+      result = await onSave({ title, content })
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
     if (result.ok) {
       setTitle('')
       setContent('')
@@ -62,7 +74,9 @@ export function PromptForm({ onSave }: { onSave(input: NewPromptInput): AddResul
           {errors.storage}
         </p>
       )}
-      <button type="submit">Save prompt</button>
+      <button type="submit" disabled={saving}>
+        Save prompt
+      </button>
     </form>
   )
 }
