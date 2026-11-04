@@ -1,4 +1,7 @@
-import type { NewPromptInput, Prompt } from '../types'
+import { isPrompt } from '../prompt'
+import type { Prompt } from '../types'
+
+export { createPrompt, validateInput } from '../prompt'
 
 export const STORAGE_KEY = 'prompt-library:prompts'
 
@@ -7,19 +10,6 @@ export class StorageWriteError extends Error {
     super('Failed to write prompts to localStorage', { cause })
     this.name = 'StorageWriteError'
   }
-}
-
-function isPrompt(value: unknown): value is Prompt {
-  if (typeof value !== 'object' || value === null) return false
-  const v = value as Record<string, unknown>
-  return (
-    typeof v.id === 'string' &&
-    typeof v.title === 'string' &&
-    typeof v.content === 'string' &&
-    typeof v.createdAt === 'number' &&
-    // Finite numbers beyond the Date range make toISOString() throw at render time.
-    !Number.isNaN(new Date(v.createdAt).getTime())
-  )
 }
 
 export function loadPrompts(): Prompt[] {
@@ -40,21 +30,5 @@ export function savePrompts(prompts: Prompt[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prompts))
   } catch (error) {
     throw new StorageWriteError(error)
-  }
-}
-
-export function validateInput(input: NewPromptInput): { title?: string; content?: string } {
-  const errors: { title?: string; content?: string } = {}
-  if (input.title.trim() === '') errors.title = 'Title is required'
-  if (input.content.trim() === '') errors.content = 'Content is required'
-  return errors
-}
-
-export function createPrompt(input: NewPromptInput, now?: number): Prompt {
-  return {
-    id: crypto.randomUUID(),
-    title: input.title.trim(),
-    content: input.content,
-    createdAt: now ?? Date.now(),
   }
 }
