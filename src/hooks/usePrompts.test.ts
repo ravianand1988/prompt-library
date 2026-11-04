@@ -1,12 +1,18 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { STORAGE_KEY } from '../storage/legacyStorage'
 import { installFakeApi } from '../test/fakeApi'
 import type { Prompt } from '../types'
 import { type AddResult, SAVE_ERROR, usePrompts } from './usePrompts'
 
-const p = (id: string, createdAt = 1): Prompt => ({ id, title: id, content: 'c', createdAt })
+const p = (id: string, createdAt = 1, isFavorite = false): Prompt => ({
+  id,
+  title: id,
+  content: 'c',
+  createdAt,
+  isFavorite,
+})
 const seedLegacy = (prompts: Prompt[]) =>
   localStorage.setItem(STORAGE_KEY, JSON.stringify(prompts))
 
@@ -136,4 +142,51 @@ it('keeps the current list when a focus refetch fails', async () => {
   await waitFor(() => expect(api.calls.at(-1)).toBe('GET /api/prompts'))
   expect(result.current.status).toBe('ready')
   expect(result.current.prompts.map((x) => x.id)).toEqual(['mine'])
+})
+
+it('toggleFavorite flips the prompt immediately and saves it', async () => {
+  const api = installFakeApi([p('a')])
+  const { result } = await renderReady()
+  let r!: AddResult
+  await act(async () => {
+    r = await result.current.toggleFavorite('a', true)
+  })
+  expect(r).toEqual({ ok: true })
+  expect(result.current.prompts[0].isFavorite).toBe(true)
+  expect(api.prompts[0].isFavorite).toBe(true)
+})
+
+it('toggleFavorite rolls back and reports an error when the save fails', async () => {
+  const api = installFakeApi([p('a', 1, true)])
+  const { result } = await renderReady()
+  api.failRequests(true)
+  let r!: AddResult
+  await act(async () => {
+    r = await result.current.toggleFavorite('a', false)
+  })
+  expect(r).toEqual({ ok: false, errors: { storage: SAVE_ERROR } })
+  expect(result.current.prompts[0].isFavorite).toBe(true)
+})
+
+it('a failed older toggle does not undo a newer one', async () => {
+  installFakeApi([p('a')])
+  const { result } = await renderReady()
+  // First request hangs then fails; the second succeeds.
+  let failFirst!: () => void
+  const realFetch = globalThis.fetch
+  let n = 0
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+    if (++n === 1) return new Promise((_, reject) => (failFirst = () => reject(new TypeError('x'))))
+    return realFetch(input, init)
+  })
+  let first!: Promise<AddResult>
+  await act(async () => {
+    first = result.current.toggleFavorite('a', true)
+    await result.current.toggleFavorite('a', false)
+  })
+  await act(async () => {
+    failFirst()
+    await first
+  })
+  expect(result.current.prompts[0].isFavorite).toBe(false)
 })

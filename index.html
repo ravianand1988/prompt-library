@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prompt Library</title>
+    <script>
+      // Apply the saved theme before first paint so dark mode doesn't flash light.
+      try {
+        if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,7 @@
 import { vi } from 'vitest'
 import { createNote, validateNoteContent } from '../note'
-import { createPrompt, isPrompt, validateInput } from '../prompt'
+import { MetadataError, trackModel, updateTimestamps, validateModelName } from '../metadata'
+import { applyEdit, createPrompt, DEFAULT_CATEGORY, hasErrors, parsePrompts, validateInput } from '../prompt'
 import type { Note, Prompt } from '../types'
 
 export interface FakeApi {
@@ -21,7 +22,7 @@ const json = (status: number, body: unknown) =>
 export function installFakeApi(initial: Prompt[] = [], initialNotes: Note[] = []): FakeApi {
   let failing = false
   const api: FakeApi = {
-    prompts: [...initial],
+    prompts: initial.map((p) => ({ ...p })),
     notes: initialNotes.map((n) => ({ ...n })),
     failRequests: (on) => {
       failing = on
@@ -40,16 +41,22 @@ export function installFakeApi(initial: Prompt[] = [], initialNotes: Note[] = []
       return json(200, [...api.prompts].sort((a, b) => b.createdAt - a.createdAt))
     }
     if (path === '/api/prompts' && method === 'POST') {
-      const input = { title: String(body.title ?? ''), content: String(body.content ?? '') }
+      const input = {
+        title: String(body.title ?? ''),
+        content: String(body.content ?? ''),
+        category: (body.category ?? DEFAULT_CATEGORY) as Prompt['category'],
+        model: body.model === undefined ? undefined : String(body.model),
+        isCode: body.isCode === true,
+      }
       const errors = validateInput(input)
-      if (errors.title || errors.content) return json(400, { errors })
+      if (hasErrors(errors)) return json(400, { errors })
       const prompt = createPrompt(input)
       api.prompts.push(prompt)
       return json(201, prompt)
     }
     if (path === '/api/prompts/import' && method === 'POST') {
       let imported = 0
-      for (const p of (body.prompts as unknown[]).filter(isPrompt)) {
+      for (const p of parsePrompts(body.prompts as unknown[])) {
         if (api.prompts.some((x) => x.id === p.id)) continue
         api.prompts.push(p)
         imported++
@@ -57,11 +64,54 @@ export function installFakeApi(initial: Prompt[] = [], initialNotes: Note[] = []
       return json(200, { imported })
     }
     const match = /^\/api\/prompts\/([^/]+)$/.exec(path)
+    if (match && method === 'PUT') {
+      const id = decodeURIComponent(match[1])
+      const existing = api.prompts.find((p) => p.id === id)
+      if (!existing) return json(404, { error: 'Not found' })
+      const edit = {
+        title: String(body.title ?? ''),
+        content: String(body.content ?? ''),
+        category: body.category as Prompt['category'],
+        isCode: body.isCode === true,
+      }
+      const errors = validateInput(edit)
+      if (hasErrors(errors)) return json(400, { errors })
+      const prompt = applyEdit(existing, edit)
+      api.prompts = api.prompts.map((p) => (p.id === id ? prompt : p))
+      return json(200, prompt)
+    }
     if (match && method === 'DELETE') {
       const id = decodeURIComponent(match[1])
       api.prompts = api.prompts.filter((p) => p.id !== id)
       api.notes = api.notes.filter((n) => n.promptId !== id)
       return new Response(null, { status: 204 })
+    }
+    const favorite = /^\/api\/prompts\/([^/]+)\/favorite$/.exec(path)
+    if (favorite && method === 'PUT') {
+      const id = decodeURIComponent(favorite[1])
+      if (typeof body.isFavorite !== 'boolean') return json(400, { error: 'Bad flag' })
+      const existing = api.prompts.find((p) => p.id === id)
+      if (!existing) return json(404, { error: 'Not found' })
+      const prompt = { ...existing, isFavorite: body.isFavorite }
+      api.prompts = api.prompts.map((p) => (p.id === id ? prompt : p))
+      return json(200, prompt)
+    }
+    const metadataMatch = /^\/api\/prompts\/([^/]+)\/metadata$/.exec(path)
+    if (metadataMatch && method === 'PUT') {
+      const id = decodeURIComponent(metadataMatch[1])
+      const existing = api.prompts.find((p) => p.id === id)
+      if (!existing) return json(404, { error: 'Not found' })
+      try {
+        const metadata = existing.metadata
+          ? updateTimestamps({ ...existing.metadata, model: validateModelName(body.model) })
+          : trackModel(String(body.model ?? ''), existing.content, { isCode: body.isCode === true })
+        const prompt = { ...existing, metadata }
+        api.prompts = api.prompts.map((p) => (p.id === id ? prompt : p))
+        return json(200, prompt)
+      } catch (error) {
+        if (error instanceof MetadataError) return json(400, { errors: { model: error.message } })
+        throw error
+      }
     }
     const promptNotes = /^\/api\/prompts\/([^/]+)\/notes$/.exec(path)
     if (promptNotes) {

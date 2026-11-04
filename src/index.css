@@ -5,18 +5,63 @@
 }
 
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Quiet studio: warm off-white page, white sheets, graphite ink, hairline rules.
+     Colour is reserved for meaning: categories, favorites, confidence, errors. */
+  --paper: #faf9f6;
+  --paper-lift: #ffffff;
+  --ink: #1d1d1b;
+  --ink-muted: #6b6a66;
+  --rule: #dedcd6;
+  --lamp: #1d1d1b;
+  --lamp-ink: #ffffff;
+  --brass: #8a6a22;
+  --error: #a33a2c;
+
+  /* One hue per category, used for badges, chips and the card's top rule. Muted to sit on neutrals. */
+  --cat-frontend: #3d5f86;
+  --cat-backend: #6f5487;
+  --cat-fullstack: #8c5c3b;
+  --cat-general: #6b6a66;
+
+  /* Token-estimate confidence: green / yellow / red. Darkened in light mode to stay readable. */
+  --conf-high: #3a7546;
+  --conf-medium: #876608;
+  /* Brighter yellow for the gauge fill; the darker ochre is kept for text. */
+  --conf-medium-fill: #c49a1c;
+  --conf-low: #a33a2c;
+
+  --serif: 'Literata Variable', Georgia, serif;
+  --sans: 'Public Sans Variable', system-ui, sans-serif;
+
+  color-scheme: light;
+  font-family: var(--sans);
+  font-size: 100%;
   line-height: 1.5;
-  color: #1f2328;
-  background: #f6f7f9;
-  color-scheme: light dark;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #e6e8eb;
-    background: #16181c;
-  }
+/* Chosen with the theme switch in the masthead; light is the default. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #1a1a18;
+  --paper-lift: #232321;
+  --ink: #ecebe7;
+  --ink-muted: #a3a29c;
+  --rule: #3a3935;
+  --lamp: #ecebe7;
+  --lamp-ink: #1a1a18;
+  --brass: #d8b462;
+  --error: #e9907f;
+  --cat-frontend: #93b4da;
+  --cat-backend: #bea6d4;
+  --cat-fullstack: #d8a57f;
+  --cat-general: #a3a29c;
+  --conf-high: #8fcf9c;
+  --conf-medium: #e3c565;
+  --conf-medium-fill: #e3c565;
+  --conf-low: #e9907f;
 }
 
 body {

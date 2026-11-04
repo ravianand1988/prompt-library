@@ -5,7 +5,7 @@ import { installFakeApi } from '../test/fakeApi'
 import type { Note, Prompt } from '../types'
 import { NotesSection } from './NotesSection'
 
-const prompt: Prompt = { id: 'p1', title: 'P', content: 'c', createdAt: 1 }
+const prompt: Prompt = { id: 'p1', title: 'P', content: 'c', createdAt: 1, isFavorite: false }
 const note: Note = { id: 'n1', promptId: 'p1', content: 'First note', createdAt: 1, updatedAt: 1 }
 
 async function setup(notes: Note[] = []) {

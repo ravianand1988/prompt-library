@@ -1,4 +1,4 @@
-import { isPrompt } from '../prompt'
+import { parsePrompts } from '../prompt'
 import type { Prompt } from '../types'
 
 /** Where versions before the SQLite backend kept prompts. Read once to migrate, then cleared. */
@@ -14,7 +14,7 @@ export function readLegacyPrompts(): Prompt[] {
     return []
   }
   if (!Array.isArray(parsed)) return []
-  return parsed.filter(isPrompt).sort((a, b) => b.createdAt - a.createdAt)
+  return parsePrompts(parsed).sort((a, b) => b.createdAt - a.createdAt)
 }
 
 export function clearLegacyPrompts(): void {

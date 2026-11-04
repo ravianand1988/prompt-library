@@ -2,6 +2,7 @@ import { type FormEvent, useId, useRef, useState } from 'react'
 import { type NoteActionResult, useNotes } from '../hooks/useNotes'
 import { MAX_NOTE_LENGTH } from '../note'
 import type { Note } from '../types'
+import { DateLabel } from './DateLabel'
 
 const LOAD_ERROR = "Couldn't load notes. Refresh to try again."
 
@@ -125,9 +126,10 @@ export function NotesSection({ promptId }: { promptId: string }) {
                 <>
                   <p className="note-content">{note.content}</p>
                   <div className="note-meta">
-                    <time dateTime={new Date(note.updatedAt).toISOString()}>
-                      Updated {new Date(note.updatedAt).toLocaleString()}
-                    </time>
+                    <DateLabel
+                      prefix={note.updatedAt > note.createdAt ? 'Edited' : 'Added'}
+                      ms={note.updatedAt}
+                    />
                     <div className="note-actions">
                       <button
                         type="button"

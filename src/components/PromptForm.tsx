@@ -1,12 +1,22 @@
 import { type FormEvent, useRef, useState } from 'react'
 import type { AddResult } from '../hooks/usePrompts'
+import { DEFAULT_MODEL } from '../metadata'
+import { DEFAULT_CATEGORY } from '../prompt'
+import { ModelPicker } from './ModelPicker'
+import { type PromptFieldValues, PromptFields } from './PromptFields'
 import type { NewPromptInput } from '../types'
 
 type Errors = Extract<AddResult, { ok: false }>['errors']
 
 export function PromptForm({ onSave }: { onSave(input: NewPromptInput): Promise<AddResult> }) {
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
+  const [values, setValues] = useState<PromptFieldValues>({
+    title: '',
+    content: '',
+    category: DEFAULT_CATEGORY,
+  })
+  // The model is kept between saves: consecutive prompts are usually for the same one.
+  const [model, setModel] = useState(DEFAULT_MODEL)
+  const [isCode, setIsCode] = useState(false)
   const [errors, setErrors] = useState<Errors>({})
   const [saving, setSaving] = useState(false)
   // A ref, not just state, so two submits in the same tick can't both get through.
@@ -20,14 +30,14 @@ export function PromptForm({ onSave }: { onSave(input: NewPromptInput): Promise<
     setSaving(true)
     let result: AddResult
     try {
-      result = await onSave({ title, content })
+      result = await onSave({ ...values, model, isCode })
     } finally {
       savingRef.current = false
       setSaving(false)
     }
     if (result.ok) {
-      setTitle('')
-      setContent('')
+      setValues((v) => ({ ...v, title: '', content: '' }))
+      setIsCode(false)
       setErrors({})
       titleRef.current?.focus()
     } else {
@@ -37,37 +47,21 @@ export function PromptForm({ onSave }: { onSave(input: NewPromptInput): Promise<
 
   return (
     <form aria-label="New prompt" className="prompt-form" onSubmit={handleSubmit} noValidate>
+      <h2 className="panel-title">New prompt</h2>
+      <PromptFields
+        idPrefix="prompt"
+        values={values}
+        onChange={setValues}
+        errors={errors}
+        titleRef={titleRef}
+      />
       <div className="field">
-        <label htmlFor="prompt-title">Title</label>
-        <input
-          id="prompt-title"
-          ref={titleRef}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          aria-invalid={errors.title ? true : undefined}
-          aria-describedby={errors.title ? 'prompt-title-error' : undefined}
-        />
-        {errors.title && (
-          <p id="prompt-title-error" className="field-error">
-            {errors.title}
-          </p>
-        )}
-      </div>
-      <div className="field">
-        <label htmlFor="prompt-content">Content</label>
-        <textarea
-          id="prompt-content"
-          rows={6}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          aria-invalid={errors.content ? true : undefined}
-          aria-describedby={errors.content ? 'prompt-content-error' : undefined}
-        />
-        {errors.content && (
-          <p id="prompt-content-error" className="field-error">
-            {errors.content}
-          </p>
-        )}
+        <label htmlFor="prompt-model">Model</label>
+        <ModelPicker id="prompt-model" value={model} onChange={setModel} error={errors.model} />
+        <label className="checkbox">
+          <input type="checkbox" checked={isCode} onChange={(e) => setIsCode(e.target.checked)} />
+          Content is mostly code
+        </label>
       </div>
       {errors.storage && (
         <p role="alert" className="form-error">

@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import type { Note, Prompt } from '../src/types.ts'
 import { type PromptDb, openPromptDb } from './db.ts'
@@ -11,6 +12,7 @@ const p = (id: string, over: Partial<Prompt> = {}): Prompt => ({
   title: 'T',
   content: 'C',
   createdAt: 1,
+  isFavorite: false,
   ...over,
 })
 
@@ -115,4 +117,45 @@ it('notes: removeNote deletes one note; removing a prompt deletes its notes', ()
   db.remove('a')
   db.insert(p('a'))
   expect(db.listNotes('a')).toEqual([])
+})
+
+it('setFavorite stores the flag and returns the prompt; unknown ids return null', () => {
+  db.insert(p('a'))
+  expect(db.setFavorite('a', true)).toEqual(p('a', { isFavorite: true }))
+  expect(db.list()).toEqual([p('a', { isFavorite: true })])
+  expect(db.setFavorite('a', false)).toEqual(p('a'))
+  expect(db.setFavorite('nope', true)).toBeNull()
+})
+
+it('importMany keeps isFavorite and reads entries without it as not favorited', () => {
+  db.importMany([p('a', { isFavorite: true }), { id: 'b', title: 'T', content: 'C', createdAt: 2 }])
+  expect(db.list()).toEqual([p('b', { createdAt: 2 }), p('a', { isFavorite: true })])
+})
+
+it('adds the is_favorite column to a database created before favorites', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pl-'))
+  const file = path.join(dir, 'old.db')
+  const legacy = new DatabaseSync(file)
+  legacy.exec(
+    'CREATE TABLE prompts (id TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL, created_at INTEGER NOT NULL)',
+  )
+  legacy.exec("INSERT INTO prompts VALUES ('old', 'T', 'C', 1)")
+  legacy.close()
+  const migrated = openPromptDb(file)
+  expect(migrated.list()).toEqual([p('old')])
+  expect(migrated.setFavorite('old', true)?.isFavorite).toBe(true)
+  migrated.close()
+  // Reopening an already-migrated file must not try to add the column again.
+  const again = openPromptDb(file)
+  expect(again.list()).toEqual([p('old', { isFavorite: true })])
+  again.close()
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+it('update saves title, content, category and metadata; unknown ids return null', () => {
+  db.insert(p('a', { category: 'General', isFavorite: true }))
+  const next = { ...p('a', { category: 'Frontend', isFavorite: true }), title: 'New', content: 'Body' }
+  expect(db.update(next)).toEqual(next)
+  expect(db.list()).toEqual([next])
+  expect(db.update(p('missing', { category: 'General' }))).toBeNull()
 })

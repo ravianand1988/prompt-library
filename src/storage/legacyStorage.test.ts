@@ -7,6 +7,7 @@ const p = (over: Partial<Prompt> = {}): Prompt => ({
   title: 'T',
   content: 'C',
   createdAt: 1,
+  isFavorite: false,
   ...over,
 })
 const seed = (value: unknown) => localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
@@ -37,6 +38,11 @@ it('drops malformed entries and keeps valid ones', () => {
 it('drops entries whose createdAt is not a valid date', () => {
   seed([p({ id: 'ok' }), p({ id: 'huge', createdAt: 1e20 })])
   expect(readLegacyPrompts().map((x) => x.id)).toEqual(['ok'])
+})
+
+it('reads prompts saved before favorites existed as not favorited', () => {
+  seed([{ id: 'a', title: 'T', content: 'C', createdAt: 1 }])
+  expect(readLegacyPrompts()).toEqual([p()])
 })
 
 it('clearLegacyPrompts removes the key', () => {

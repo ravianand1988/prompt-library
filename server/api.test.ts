@@ -11,6 +11,7 @@ const p = (id: string, over: Partial<Prompt> = {}): Prompt => ({
   title: 'T',
   content: 'C',
   createdAt: 1,
+  isFavorite: false,
   ...over,
 })
 
@@ -229,4 +230,72 @@ it('notes: writes from another origin are rejected with 403', async () => {
   })
   expect(res.status).toBe(403)
   expect(db.listNotes('a')).toEqual([])
+})
+
+it('favorite: PUT sets the flag, GET reflects it, and new prompts start unfavorited', async () => {
+  const made = (await (await post('/api/prompts', { title: 'T', content: 'C' })).json()) as Prompt
+  expect(made.isFavorite).toBe(false)
+  const res = await put(`/api/prompts/${made.id}/favorite`, { isFavorite: true })
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ ...made, isFavorite: true })
+  const listed = (await (await fetch(`${base}/api/prompts`)).json()) as Prompt[]
+  expect(listed[0].isFavorite).toBe(true)
+})
+
+it('favorite: rejects a non-boolean flag with 400 and an unknown prompt with 404', async () => {
+  db.insert(p('a'))
+  expect((await put('/api/prompts/a/favorite', { isFavorite: 'yes' })).status).toBe(400)
+  expect((await put('/api/prompts/a/favorite', {})).status).toBe(400)
+  expect(db.list()[0].isFavorite).toBe(false)
+  expect((await put('/api/prompts/nope/favorite', { isFavorite: true })).status).toBe(404)
+})
+
+it('favorite: writes from another origin are rejected with 403', async () => {
+  db.insert(p('a'))
+  const res = await fetch(`${base}/api/prompts/a/favorite`, {
+    method: 'PUT',
+    headers: { origin: 'http://evil.example', 'content-type': 'application/json' },
+    body: JSON.stringify({ isFavorite: true }),
+  })
+  expect(res.status).toBe(403)
+  expect(db.list()[0].isFavorite).toBe(false)
+})
+
+it('PUT /api/prompts/:id saves title, content and category; keeps id, createdAt and favorite', async () => {
+  db.insert(p('a', { category: 'General', isFavorite: true, createdAt: 5 }))
+  const res = await put('/api/prompts/a', { title: '  New ', content: 'Body', category: 'Backend' })
+  expect(res.status).toBe(200)
+  const expected = { id: 'a', title: 'New', content: 'Body', category: 'Backend', createdAt: 5, isFavorite: true }
+  expect(await res.json()).toEqual(expected)
+  expect(db.get('a')).toEqual(expected)
+})
+
+it('PUT /api/prompts/:id re-estimates tokens and bumps updatedAt only on metadata it has', async () => {
+  const metadata = {
+    model: 'GPT-5',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    tokenEstimate: { min: 1, max: 1, confidence: 'high' as const },
+  }
+  db.insert(p('a', { category: 'General', metadata }))
+  const res = await put('/api/prompts/a', { title: 'T', content: 'one two three four', category: 'General' })
+  const saved = (await res.json()) as Prompt
+  expect(saved.metadata).toMatchObject({ model: 'GPT-5', createdAt: metadata.createdAt })
+  expect(saved.metadata!.updatedAt > metadata.updatedAt).toBe(true)
+  expect(saved.metadata!.tokenEstimate).toEqual({ min: 3, max: 5, confidence: 'high' })
+})
+
+it('PUT /api/prompts/:id returns 400 with field errors and leaves the prompt unchanged', async () => {
+  db.insert(p('a', { category: 'General' }))
+  const res = await put('/api/prompts/a', { title: ' ', content: '', category: 'Nope' })
+  expect(res.status).toBe(400)
+  expect(await res.json()).toEqual({
+    errors: { title: 'Title is required', content: 'Content is required', category: 'Choose a category' },
+  })
+  expect(db.get('a')).toMatchObject({ title: 'T', content: 'C' })
+})
+
+it('PUT /api/prompts/:id returns 404 for an unknown prompt', async () => {
+  const res = await put('/api/prompts/missing', { title: 'T', content: 'C', category: 'General' })
+  expect(res.status).toBe(404)
 })

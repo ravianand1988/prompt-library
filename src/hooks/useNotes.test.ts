@@ -4,7 +4,7 @@ import { installFakeApi } from '../test/fakeApi'
 import type { Note, Prompt } from '../types'
 import { NOTE_SAVE_ERROR, type NoteActionResult, useNotes } from './useNotes'
 
-const prompt: Prompt = { id: 'p1', title: 'P', content: 'c', createdAt: 1 }
+const prompt: Prompt = { id: 'p1', title: 'P', content: 'c', createdAt: 1, isFavorite: false }
 const n = (id: string, updatedAt: number, promptId = 'p1'): Note => ({
   id,
   promptId,

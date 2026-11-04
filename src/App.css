@@ -1,131 +1,663 @@
+/* Layout: on wide screens the new-prompt form sits on the left and the
+   library of prompt cards on the right; details open in a dialog. */
 .app {
-  max-width: 720px;
+  max-width: 80rem;
   margin: 0 auto;
-  padding: 2rem 1rem 4rem;
+  padding: 4rem 1.5rem 6rem;
 }
 
-h1 {
-  margin: 0 0 1.5rem;
+/* ---------- Masthead ---------- */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-bottom: 2.5rem;
 }
 
-.prompt-form,
-.prompt-item {
-  background: Canvas;
-  border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
-  border-radius: 8px;
-  padding: 1rem;
+button.theme-toggle {
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  border-color: var(--rule);
+  font-weight: 500;
 }
 
-.prompt-form {
-  display: grid;
-  gap: 1rem;
+button.theme-toggle:hover {
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
-.field {
-  display: grid;
-  gap: 0.25rem;
+.masthead h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2.5rem, 6vw, 3.8rem);
+  font-weight: 350;
+  font-optical-sizing: auto;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
 }
+
+.masthead p {
+  margin: 0.75rem 0 0;
+  color: var(--ink-muted);
+}
+
+/* ---------- Form controls ---------- */
 
 label {
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
 input,
+select,
 textarea,
 button {
   font: inherit;
+  color: inherit;
 }
 
-input,
+input:not([type='checkbox']),
+select,
 textarea {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);
-  border-radius: 6px;
-  background: Canvas;
-  color: CanvasText;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-lift);
 }
 
 textarea {
   resize: vertical;
 }
 
+:focus-visible {
+  outline: 2px solid var(--lamp);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+  border-color: var(--lamp);
+}
+
 [aria-invalid='true'] {
-  border-color: #cf222e;
+  border-color: var(--error);
 }
 
 .field-error,
 .form-error {
   margin: 0;
-  color: #cf222e;
+  font-size: 0.875rem;
+  color: var(--error);
 }
 
+/* Primary action. Variants below are all `button.x` so they outrank this. */
 button {
   justify-self: start;
-  padding: 0.5rem 1rem;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: #0969da;
-  color: #fff;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid var(--lamp);
+  border-radius: 3px;
+  background: var(--lamp);
+  color: var(--lamp-ink);
+  font-weight: 600;
   cursor: pointer;
 }
 
-button.delete {
-  padding: 0.25rem 0.75rem;
+button.secondary {
   background: transparent;
-  border-color: #cf222e;
-  color: #cf222e;
+  color: var(--lamp);
 }
 
-h2 {
-  margin: 2rem 0 1rem;
+/* Destructive actions stay quiet until pointed at. */
+button.delete {
+  padding: 0.25rem 0.25rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  font-weight: 500;
 }
 
-.prompt-list {
+button.delete:hover {
+  color: var(--error);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------- Workspace: compose on the left, library on the right ---------- */
+
+.workspace {
   display: grid;
+  gap: 3rem;
+}
+
+@media (min-width: 62rem) {
+  .workspace {
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  /* The form stays in reach while the list scrolls. */
+  .compose {
+    position: sticky;
+    top: 1.5rem;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- New prompt ---------- */
+
+.prompt-form {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border-radius: 6px;
+  background: var(--paper-lift);
+  border: 1px solid var(--rule);
+}
+
+.panel-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 450;
+}
+
+.prompt-form input:not([type='radio']),
+.prompt-form textarea {
+  background: var(--paper);
+  font-family: var(--serif);
+}
+
+.prompt-form .title-input {
+  font-size: 1.15rem;
+}
+
+.prompt-form textarea {
+  line-height: 1.6;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.category-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.category-picker legend {
+  padding: 0;
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.category-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* Radios styled as pills; the native input stays for keyboard and screen readers. */
+.category-option {
+  position: relative;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.category-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.category-option span {
+  display: inline-block;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+}
+
+.category-option input:checked + span {
+  border-color: var(--cat);
+  background: var(--cat);
+  color: var(--paper-lift);
+}
+
+.category-option input:focus-visible + span {
+  outline: 2px solid var(--lamp);
+  outline-offset: 2px;
+}
+
+/* ---------- Category colour ---------- */
+
+[data-category='Frontend'] {
+  --cat: var(--cat-frontend);
+}
+[data-category='Backend'] {
+  --cat: var(--cat-backend);
+}
+[data-category='FullStack'] {
+  --cat: var(--cat-fullstack);
+}
+[data-category='General'] {
+  --cat: var(--cat-general);
+}
+[data-category='All'] {
+  --cat: var(--lamp);
+}
+
+.category-badge {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--cat) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cat) 12%, transparent);
+  color: var(--cat);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- Library header, search and filters ---------- */
+
+.list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.list-header h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.56rem;
+  font-weight: 450;
+}
+
+.result-count {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.toolbar {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1.75rem;
+}
+
+.search input {
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+button.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+button.chip:hover {
+  border-color: var(--cat, var(--lamp));
+  color: var(--ink);
+}
+
+button.chip[aria-pressed='true'] {
+  border-color: var(--cat);
+  background: var(--cat);
+  color: var(--paper-lift);
+  font-weight: 600;
+}
+
+.chip-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+button.favorites-chip {
+  --cat: var(--brass);
+}
+
+.status,
+.empty {
+  color: var(--ink-muted);
+}
+
+.empty {
+  display: grid;
+  justify-items: start;
   gap: 0.75rem;
+}
+
+.empty p {
+  margin: 0;
+}
+
+/* ---------- Prompt cards ---------- */
+
+.prompt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.prompt-header {
+.prompt-grid > li {
+  display: grid;
+}
+
+.prompt-card {
+  position: relative;
+  display: grid;
+  /* Summary takes the slack, so metadata and footer line up across a row of cards. */
+  grid-template-rows: auto auto 1fr;
+  gap: 0.6rem;
+  padding: 1rem 1.15rem 0.9rem;
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--cat);
+  border-radius: 6px;
+  background: var(--paper-lift);
+  transition:
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.prompt-card:hover,
+.prompt-card:focus-within {
+  box-shadow: 0 6px 18px -12px rgb(0 0 0 / 0.18);
+  transform: translateY(-2px);
+}
+
+.card-top {
   display: flex;
-  align-items: start;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* The favorite button must sit above the stretched title link. */
+.card-top button.favorite {
+  position: relative;
+  z-index: 1;
+}
+
+.prompt-card h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+button.card-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+/* Stretch the title button over the whole card. */
+button.card-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+button.card-open:focus-visible {
+  outline: none;
+}
+
+button.card-open:focus-visible::after {
+  outline: 2px solid var(--lamp);
+  outline-offset: 2px;
+}
+
+.card-summary {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  font-family: var(--serif);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--rule);
+}
+
+.card-more {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--lamp);
+}
+
+/* ---------- Details dialog ---------- */
+
+.prompt-details {
+  width: min(46rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.prompt-details::backdrop {
+  background: rgb(20 20 18 / 0.45);
+}
+
+.details-body {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem 1.75rem 2rem;
+}
+
+.details-header {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
 }
 
-.prompt-header h3 {
+.details-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+button.close {
+  padding: 0 0.5rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+button.close:hover {
+  color: var(--ink);
+}
+
+.prompt-details h2 {
   margin: 0;
+  font-family: var(--serif);
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
+.details-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+button.secondary.edit {
+  padding: 0.25rem 0.75rem;
+  font-weight: 500;
+}
+
+/* Editing happens in place of the content, so it shares the content's left rule. */
+.edit-form {
+  border-left: 3px solid var(--lamp);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
 .prompt-content {
-  margin: 0.5rem 0;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border-left: 3px solid var(--lamp);
+  background: var(--paper-lift);
+  font-family: var(--serif);
+  font-size: 1.0625rem;
+  line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-time {
-  font-size: 0.85rem;
-  opacity: 0.7;
+.prompt-details[data-favorite='true'] .prompt-content {
+  border-left-color: var(--brass);
 }
 
-.empty {
-  opacity: 0.7;
+/* Dates are secondary: small, muted, never split across lines, and with
+   even-width digits so dates in a column line up. Hover shows the exact time. */
+.date {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink-muted);
 }
+
+.date[title] {
+  cursor: help;
+}
+
+/* ---------- Favorite ---------- */
+
+button.favorite {
+  display: grid;
+  place-items: center;
+  padding: 0.25rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+button.favorite svg {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  transition:
+    fill 150ms ease,
+    transform 150ms ease;
+}
+
+button.favorite:hover svg {
+  transform: scale(1.1);
+}
+
+button.favorite[aria-pressed='true'] {
+  color: var(--brass);
+}
+
+/* The pop runs each time the heart becomes filled, because the animation rule starts matching. */
+button.favorite[aria-pressed='true'] svg {
+  fill: currentColor;
+  animation: favorite-pop 300ms ease;
+}
+
+@keyframes favorite-pop {
+  50% {
+    transform: scale(1.3);
+  }
+}
+
+/* ---------- Notes: marginalia ---------- */
 
 .notes {
-  margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
   display: grid;
+  align-content: start;
   gap: 0.75rem;
+  min-width: 0;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
 }
 
 .notes h4 {
   margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-muted);
 }
 
 .notes p {
@@ -134,19 +666,22 @@ time {
 
 .note-list {
   display: grid;
-  gap: 0.5rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .note-item {
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  background: color-mix(in srgb, CanvasText 5%, transparent);
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--rule);
+}
+
+.note-item:last-child {
+  border-bottom: 1px solid var(--rule);
 }
 
 .note-content {
+  line-height: 1.55;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -156,8 +691,12 @@ time {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
+  gap: 0.25rem 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.note-meta .date {
+  font-size: 0.75rem;
 }
 
 .note-form {
@@ -165,22 +704,297 @@ time {
   gap: 0.5rem;
 }
 
+.note-form label {
+  font-size: 0.8125rem;
+}
+
+.note-form textarea {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.875rem;
+}
+
 .note-actions {
   display: flex;
   gap: 0.5rem;
 }
 
-.note-actions button {
+.note-actions button,
+.note-form button {
   padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
 }
 
-button.secondary {
+.note-meta .note-actions button {
+  padding: 0.15rem 0.35rem;
+  border-color: transparent;
   background: transparent;
-  border-color: color-mix(in srgb, CanvasText 30%, transparent);
-  color: CanvasText;
+  color: var(--ink-muted);
+  font-weight: 500;
 }
 
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.note-meta .note-actions button:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.note-meta .note-actions button.delete:hover {
+  color: var(--error);
+}
+
+/* Adding a note is secondary to reading the prompt. */
+.notes > .note-form button[type='submit'] {
+  background: transparent;
+  color: var(--lamp);
+}
+
+/* ---------- Model metadata ---------- */
+
+.model-picker {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.prompt-form select {
+  background: var(--paper);
+}
+
+label.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+label.checkbox input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--lamp);
+}
+
+/* Confidence hue, shared by the gauge fill and its text. */
+[data-confidence='high'] {
+  --conf: var(--conf-high);
+}
+[data-confidence='medium'] {
+  --conf: var(--conf-medium);
+  --conf-fill: var(--conf-medium-fill);
+}
+[data-confidence='low'] {
+  --conf: var(--conf-low);
+}
+
+.model-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.token-range {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The gauge: a hairline track, threshold ticks, and the estimated range as a filled span. */
+.token-gauge {
+  position: relative;
+}
+
+.gauge-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--rule) 55%, transparent);
+}
+
+.metadata-tokens .gauge-track {
+  cursor: help;
+}
+
+.gauge-tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--ink-muted);
+  opacity: 0.45;
+}
+
+.gauge-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 6px;
+  border-radius: 3px;
+  background: var(--conf-fill, var(--conf));
+}
+
+.gauge-scale {
+  position: relative;
+  height: 1rem;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.gauge-scale span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.gauge-scale span:first-child {
+  transform: none;
+}
+
+.card-metadata {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+}
+
+.card-metadata-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.card-metadata .token-range {
+  color: var(--ink-muted);
+}
+
+.metadata-dates {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+/* ---------- Metadata in the details dialog ---------- */
+
+.metadata-section {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.metadata-section h4 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.metadata-empty {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+/* Two columns: what it is on the top row (model, tokens), when on the bottom. */
+.metadata-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 1rem 2rem;
+  margin: 0;
+}
+
+.metadata-list dt {
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+.metadata-list dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.metadata-model .model-name {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.125rem;
+  font-weight: 500;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.metadata-tokens dd {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0.15rem 0.75rem;
+}
+
+.metadata-tokens .token-range {
+  font-family: var(--serif);
+  font-size: 1.125rem;
+}
+
+.confidence-text {
+  justify-self: end;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--conf);
+}
+
+.metadata-tokens .token-gauge {
+  grid-column: 1 / -1;
+  margin-top: 0.35rem;
+}
+
+.full-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.unchanged {
+  color: var(--ink-muted);
+}
+
+.metadata-form {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 24rem;
+}
+
+.metadata-form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+@media (max-width: 34rem) {
+  .metadata-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.favorite svg {
+    transition: none;
+    animation: none !important;
+  }
+
+  .prompt-card {
+    transition: none;
+  }
+
+  .prompt-card:hover,
+  .prompt-card:focus-within {
+    transform: none;
+  }
 }

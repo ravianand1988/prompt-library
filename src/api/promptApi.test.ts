@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { ApiError, fetchPrompts, importPrompts, postPrompt, removePrompt } from './promptApi'
 
-const ok = { id: 'a', title: 'T', content: 'C', createdAt: 1 }
+const ok = { id: 'a', title: 'T', content: 'C', createdAt: 1, isFavorite: false }
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 const stub = (impl: (url: string, init?: RequestInit) => Promise<Response>) => {
