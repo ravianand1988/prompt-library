@@ -3,28 +3,10 @@ import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { type MetadataObject, parseMetadata } from '../src/metadata.ts'
 import { DEFAULT_CATEGORY, isCategory, parsePrompts } from '../src/prompt.ts'
+import type { PromptDb } from '../src/api/routes.ts'
 import type { Note, Prompt } from '../src/types.ts'
 
-export interface PromptDb {
-  list(): Prompt[]
-  insert(prompt: Prompt): void
-  remove(id: string): void
-  /** Returns the updated prompt, or null when it doesn't exist. */
-  setFavorite(id: string, isFavorite: boolean): Prompt | null
-  get(id: string): Prompt | null
-  /** Saves title, content, category and metadata. Returns the stored prompt, or null when it doesn't exist. */
-  update(prompt: Prompt): Prompt | null
-  /** Returns the updated prompt, or null when it doesn't exist. */
-  setMetadata(id: string, metadata: MetadataObject): Prompt | null
-  importMany(prompts: unknown[]): number
-  listNotes(promptId: string): Note[]
-  /** Returns false when the prompt doesn't exist. */
-  insertNote(note: Note): boolean
-  /** Returns the updated note, or null when it doesn't exist. */
-  updateNote(id: string, content: string, updatedAt: number): Note | null
-  removeNote(id: string): void
-  close(): void
-}
+export type { PromptDb }
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS prompts (
   id TEXT PRIMARY KEY,
