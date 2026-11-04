@@ -130,3 +130,38 @@ it('returns 500 JSON when the db throws', async () => {
   expect(res.status).toBe(500)
   expect(await res.json()).toEqual({ error: expect.any(String) })
 })
+
+it('rejects POST bodies that are not sent as JSON with 415', async () => {
+  // A cross-site form or text/plain fetch is a "simple" request that skips the CORS preflight.
+  const res = await fetch(`${base}/api/prompts`, {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain' },
+    body: JSON.stringify({ title: 'evil', content: 'x' }),
+  })
+  expect(res.status).toBe(415)
+  expect(await res.json()).toEqual({ error: expect.any(String) })
+  expect(db.list()).toEqual([])
+})
+
+it('rejects writes from another origin with 403', async () => {
+  db.insert(p('keep'))
+  const evil = { origin: 'http://evil.example' }
+  const created = await fetch(`${base}/api/prompts`, {
+    method: 'POST',
+    headers: { ...evil, 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'evil', content: 'x' }),
+  })
+  expect(created.status).toBe(403)
+  const deleted = await fetch(`${base}/api/prompts/keep`, { method: 'DELETE', headers: evil })
+  expect(deleted.status).toBe(403)
+  expect(db.list().map((x) => x.id)).toEqual(['keep'])
+})
+
+it('accepts writes whose Origin matches the server', async () => {
+  const res = await fetch(`${base}/api/prompts`, {
+    method: 'POST',
+    headers: { origin: base, 'content-type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ title: 'ok', content: 'x' }),
+  })
+  expect(res.status).toBe(201)
+})
