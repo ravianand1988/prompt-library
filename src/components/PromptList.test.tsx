@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
+import { installFakeApi } from '../test/fakeApi'
 import type { Prompt } from '../types'
 import { PromptList } from './PromptList'
 
@@ -8,6 +9,11 @@ const prompts: Prompt[] = [
   { id: '1', title: 'First', content: 'line1\nline2', createdAt: 2 },
   { id: '2', title: 'Second', content: '<b>bold?</b>', createdAt: 1 },
 ]
+
+// Each card's NotesSection loads its notes on mount.
+beforeEach(() => {
+  installFakeApi(prompts)
+})
 
 it('shows the empty state', () => {
   render(<PromptList prompts={[]} onDelete={vi.fn()} />)
@@ -21,6 +27,11 @@ it('renders prompts in the given order', () => {
     'First',
     'Second',
   ])
+})
+
+it('gives each prompt its own notes section', async () => {
+  render(<PromptList prompts={prompts} onDelete={vi.fn()} />)
+  expect(await screen.findAllByRole('region', { name: 'Notes (0)' })).toHaveLength(2)
 })
 
 it('renders content as literal text, preserving newlines', () => {

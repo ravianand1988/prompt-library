@@ -2,7 +2,7 @@
 import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { Prompt } from '../src/types.ts'
+import type { Note, Prompt } from '../src/types.ts'
 import { createApiHandler } from './api.ts'
 import { type PromptDb, openPromptDb } from './db.ts'
 
@@ -164,4 +164,69 @@ it('accepts writes whose Origin matches the server', async () => {
     body: JSON.stringify({ title: 'ok', content: 'x' }),
   })
   expect(res.status).toBe(201)
+})
+
+const put = (path: string, body: unknown) =>
+  fetch(base + path, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+it('notes: POST creates a trimmed note and GET lists it', async () => {
+  db.insert(p('a'))
+  const res = await post('/api/prompts/a/notes', { content: '  hello  ' })
+  expect(res.status).toBe(201)
+  const made = (await res.json()) as Note
+  expect(made).toMatchObject({ promptId: 'a', content: 'hello' })
+  expect(made.updatedAt).toBe(made.createdAt)
+  const listed = await fetch(`${base}/api/prompts/a/notes`)
+  expect(listed.status).toBe(200)
+  expect(await listed.json()).toEqual([made])
+})
+
+it('notes: POST rejects blank and over-long content with field errors', async () => {
+  db.insert(p('a'))
+  const blank = await post('/api/prompts/a/notes', { content: '  ' })
+  expect(blank.status).toBe(400)
+  expect(await blank.json()).toEqual({ errors: { content: 'Note cannot be empty' } })
+  const long = await post('/api/prompts/a/notes', { content: 'x'.repeat(2001) })
+  expect(long.status).toBe(400)
+  expect(db.listNotes('a')).toEqual([])
+})
+
+it('notes: POST to an unknown prompt returns 404', async () => {
+  const res = await post('/api/prompts/missing/notes', { content: 'hi' })
+  expect(res.status).toBe(404)
+})
+
+it('notes: PUT updates content and updatedAt; unknown id returns 404', async () => {
+  db.insert(p('a'))
+  const made = (await (await post('/api/prompts/a/notes', { content: 'v1' })).json()) as Note
+  const res = await put(`/api/notes/${made.id}`, { content: ' v2 ' })
+  expect(res.status).toBe(200)
+  const updated = (await res.json()) as Note
+  expect(updated).toMatchObject({ id: made.id, content: 'v2', createdAt: made.createdAt })
+  expect(updated.updatedAt).toBeGreaterThanOrEqual(made.updatedAt)
+  expect((await put('/api/notes/nope', { content: 'x' })).status).toBe(404)
+  expect((await put(`/api/notes/${made.id}`, { content: '' })).status).toBe(400)
+})
+
+it('notes: DELETE removes the note with 204', async () => {
+  db.insert(p('a'))
+  const made = (await (await post('/api/prompts/a/notes', { content: 'bye' })).json()) as Note
+  const res = await fetch(`${base}/api/notes/${made.id}`, { method: 'DELETE' })
+  expect(res.status).toBe(204)
+  expect(db.listNotes('a')).toEqual([])
+})
+
+it('notes: writes from another origin are rejected with 403', async () => {
+  db.insert(p('a'))
+  const res = await fetch(`${base}/api/prompts/a/notes`, {
+    method: 'POST',
+    headers: { origin: 'http://evil.example', 'content-type': 'application/json' },
+    body: JSON.stringify({ content: 'x' }),
+  })
+  expect(res.status).toBe(403)
+  expect(db.listNotes('a')).toEqual([])
 })

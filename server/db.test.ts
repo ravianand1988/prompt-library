@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, expect, it } from 'vitest'
-import type { Prompt } from '../src/types.ts'
+import type { Note, Prompt } from '../src/types.ts'
 import { type PromptDb, openPromptDb } from './db.ts'
 
 const p = (id: string, over: Partial<Prompt> = {}): Prompt => ({
@@ -73,4 +73,46 @@ it('data persists across open/close on a file', () => {
   expect(b.list().map((x) => x.id)).toEqual(['kept'])
   b.close()
   fs.rmSync(dir, { recursive: true, force: true })
+})
+
+const n = (id: string, promptId: string, over: Partial<Note> = {}): Note => ({
+  id,
+  promptId,
+  content: 'note',
+  createdAt: 1,
+  updatedAt: 1,
+  ...over,
+})
+
+it('notes: insert then list returns only that prompt\'s notes, most recently updated first', () => {
+  db.insert(p('a'))
+  db.insert(p('b'))
+  expect(db.insertNote(n('n1', 'a', { updatedAt: 1 }))).toBe(true)
+  expect(db.insertNote(n('n2', 'a', { updatedAt: 3 }))).toBe(true)
+  expect(db.insertNote(n('n3', 'b'))).toBe(true)
+  expect(db.listNotes('a').map((x) => x.id)).toEqual(['n2', 'n1'])
+  expect(db.listNotes('a')[0]).toEqual(n('n2', 'a', { updatedAt: 3 }))
+})
+
+it('notes: insertNote returns false for an unknown prompt', () => {
+  expect(db.insertNote(n('n1', 'missing'))).toBe(false)
+  expect(db.listNotes('missing')).toEqual([])
+})
+
+it('notes: updateNote changes content and updatedAt, returns null for unknown ids', () => {
+  db.insert(p('a'))
+  db.insertNote(n('n1', 'a'))
+  expect(db.updateNote('n1', 'edited', 9)).toEqual(n('n1', 'a', { content: 'edited', updatedAt: 9 }))
+  expect(db.updateNote('nope', 'x', 9)).toBeNull()
+})
+
+it('notes: removeNote deletes one note; removing a prompt deletes its notes', () => {
+  db.insert(p('a'))
+  db.insertNote(n('n1', 'a'))
+  db.insertNote(n('n2', 'a'))
+  db.removeNote('n1')
+  expect(db.listNotes('a').map((x) => x.id)).toEqual(['n2'])
+  db.remove('a')
+  db.insert(p('a'))
+  expect(db.listNotes('a')).toEqual([])
 })

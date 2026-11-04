@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { createNote, validateNoteContent } from '../src/note.ts'
 import { createPrompt, validateInput } from '../src/prompt.ts'
 import type { PromptDb } from './db.ts'
 
@@ -88,6 +89,32 @@ export function createApiHandler(db: PromptDb): Middleware {
     const match = /^\/api\/prompts\/([^/]+)$/.exec(path)
     if (match && method === 'DELETE') {
       db.remove(decodeURIComponent(match[1]))
+      res.statusCode = 204
+      return res.end()
+    }
+    const promptNotes = /^\/api\/prompts\/([^/]+)\/notes$/.exec(path)
+    if (promptNotes && method === 'GET') {
+      return sendJson(res, 200, db.listNotes(decodeURIComponent(promptNotes[1])))
+    }
+    if (promptNotes && method === 'POST') {
+      const content = asString(field(await readJson(req), 'content'))
+      const error = validateNoteContent(content)
+      if (error) return sendJson(res, 400, { errors: { content: error } })
+      const note = createNote(decodeURIComponent(promptNotes[1]), content)
+      if (!db.insertNote(note)) throw new HttpError(404, 'Prompt not found')
+      return sendJson(res, 201, note)
+    }
+    const noteMatch = /^\/api\/notes\/([^/]+)$/.exec(path)
+    if (noteMatch && method === 'PUT') {
+      const content = asString(field(await readJson(req), 'content'))
+      const error = validateNoteContent(content)
+      if (error) return sendJson(res, 400, { errors: { content: error } })
+      const note = db.updateNote(decodeURIComponent(noteMatch[1]), content.trim(), Date.now())
+      if (!note) throw new HttpError(404, 'Note not found')
+      return sendJson(res, 200, note)
+    }
+    if (noteMatch && method === 'DELETE') {
+      db.removeNote(decodeURIComponent(noteMatch[1]))
       res.statusCode = 204
       return res.end()
     }

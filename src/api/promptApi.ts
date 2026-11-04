@@ -9,7 +9,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path: string, init?: RequestInit): Promise<Response> {
+export async function request(path: string, init?: RequestInit): Promise<Response> {
   try {
     return await fetch(path, init)
   } catch (error) {
@@ -17,7 +17,7 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   }
 }
 
-async function readJson(res: Response): Promise<unknown> {
+export async function readJson(res: Response): Promise<unknown> {
   try {
     return await res.json()
   } catch (error) {
@@ -25,7 +25,7 @@ async function readJson(res: Response): Promise<unknown> {
   }
 }
 
-const jsonInit = (method: string, body: unknown): RequestInit => ({
+export const jsonInit = (method: string, body: unknown): RequestInit => ({
   method,
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),

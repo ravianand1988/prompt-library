@@ -1,4 +1,5 @@
 import type { Prompt } from '../types'
+import { NotesSection } from './NotesSection'
 
 export function PromptList({
   prompts,
@@ -34,6 +35,7 @@ export function PromptList({
           <time dateTime={new Date(prompt.createdAt).toISOString()}>
             {new Date(prompt.createdAt).toLocaleString()}
           </time>
+          <NotesSection promptId={prompt.id} />
         </li>
       ))}
     </ul>
