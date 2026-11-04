@@ -3,7 +3,9 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 
 afterEach(() => {
-  cleanup()
-  localStorage.clear()
+  if (typeof window !== 'undefined') {
+    cleanup()
+    localStorage.clear()
+  }
   vi.restoreAllMocks()
 })
